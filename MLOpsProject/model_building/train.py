@@ -15,17 +15,18 @@ import os
 from huggingface_hub import login, HfApi, create_repo
 from huggingface_hub.utils import RepositoryNotFoundError, HfHubHTTPError
 import mlflow
+
 tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "file://" + os.path.abspath("./mlruns"))
 mlflow.set_tracking_uri(tracking_uri)
 # mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("mlops-training-experiment")
 
-api = HfApi()
+# api = HfApi(token=os.getenv("HF_TOKEN"))
 
-Xtrain_path = "hf://datasets/RanjaniD/Tourism_Package_PredictionV2/Xtrain.csv"
-Xtest_path = "hf://datasets/RanjaniD/Tourism_Package_PredictionV2/Xtest.csv"
-ytrain_path = "hf://datasets/RanjaniD/Tourism_Package_PredictionV2/ytrain.csv"
-ytest_path = "hf://datasets/RanjaniD/Tourism_Package_PredictionV2/ytest.csv"
+Xtrain_path = "hf://datasets/RanjaniD/Tourism-Package-Prediction/Xtrain.csv"
+Xtest_path = "hf://datasets/RanjaniD/Tourism-Package-Prediction/Xtest.csv"
+ytrain_path = "hf://datasets/RanjaniD/Tourism-Package-Prediction/ytrain.csv"
+ytest_path = "hf://datasets/RanjaniD/Tourism-Package-Prediction/ytest.csv"
 
 Xtrain = pd.read_csv(Xtrain_path)
 Xtest = pd.read_csv(Xtest_path)
@@ -65,12 +66,12 @@ xgb_model = xgb.XGBClassifier(scale_pos_weight=class_weight, random_state=42)
 
 # Define hyperparameter grid
 param_grid = {
-    'xgbregressor__n_estimators': [50, 100, 150],
-    'xgbregressor__max_depth': [3, 5, 7],
-    'xgbregressor__learning_rate': [0.01, 0.05, 0.1],
-    'xgbregressor__subsample': [0.7, 0.8, 1.0],
-    'xgbregressor__colsample_bytree': [0.7, 0.8, 1.0],
-    'xgbregressor__reg_lambda': [0.1, 1, 10]
+    'xgbclassifier__n_estimators': [50, 100, 150],
+    'xgbclassifier__max_depth': [3, 5, 7],
+    'xgbclassifier__learning_rate': [0.01, 0.05, 0.1],
+    'xgbclassifier__subsample': [0.7, 0.8, 1.0],
+    'xgbclassifier__colsample_bytree': [0.7, 0.8, 1.0],
+    'xgbclassifier__reg_lambda': [0.1, 1, 10]
 }
 
 # Create pipeline
@@ -101,24 +102,19 @@ with mlflow.start_run():
   y_pred_train = best_model.predict(Xtrain)
   y_pred_test = best_model.predict(Xtest)
 
-  # Metrics
-  train_rmse = mean_squared_error(ytrain, y_pred_train, squared=False)
-  test_rmse = mean_squared_error(ytest, y_pred_test, squared=False)
+  # Metrics 
+  train_acc = accuracy_score(ytrain, y_pred_train)
+  test_acc = accuracy_score(ytest, y_pred_test)
 
-  train_mae = mean_absolute_error(ytrain, y_pred_train)
-  test_mae = mean_absolute_error(ytest, y_pred_test)
-
-  train_r2 = r2_score(ytrain, y_pred_train)
-  test_r2 = r2_score(ytest, y_pred_test)
+  train_recall = recall_score(ytrain, y_pred_train)
+  test_recall = recall_score(ytest, y_pred_test)
 
   # Log metrics
   mlflow.log_metrics({
-      "train_RMSE": train_rmse,
-      "test_RMSE": test_rmse,
-      "train_MAE": train_mae,
-      "test_MAE": test_mae,
-      "train_R2": train_r2,
-      "test_R2": test_r2
+      "train_Accuracy": train_acc,
+      "test_Accuracy": test_acc,
+      "train_Recall": train_recall,
+      "test_Recall": test_recall
   })
 
   # Evaluation
@@ -137,10 +133,10 @@ with mlflow.start_run():
   print(f"Model saved as artifact at: {model_path}")
 
   # Upload to Hugging Face
-  repo_id = "RanjaniD/Tourism_Package_PredictionV2"
+  repo_id = "RanjaniD/Tourism-Package-Prediction"
   repo_type = "model"
 
-  # api = HfApi(token=os.getenv("HF_TOKEN"))
+  api = HfApi(token=os.getenv("HF_TOKEN"))
 
   # Step 1: Check if the space exists
   try:
